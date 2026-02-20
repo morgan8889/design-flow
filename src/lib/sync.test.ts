@@ -61,7 +61,7 @@ describe("sync engine", () => {
     await syncProject(db, projectId, mockGithub as any);
 
     const items = getActiveItems(db);
-    expect(items.some((i) => i.type === "checks_failing")).toBe(true);
+    expect(items.some((i: { type: string }) => i.type === "checks_failing")).toBe(true);
   });
 
   it("creates attention item for PR needing review", async () => {
@@ -81,7 +81,7 @@ describe("sync engine", () => {
     await syncProject(db, projectId, mockGithub as any);
 
     const items = getActiveItems(db);
-    expect(items.some((i) => i.type === "pr_needs_review")).toBe(true);
+    expect(items.some((i: { type: string }) => i.type === "pr_needs_review")).toBe(true);
   });
 
   it("auto-resolves checks_failing when checks pass", async () => {
@@ -93,7 +93,7 @@ describe("sync engine", () => {
       { name: "test", status: "completed", conclusion: "failure" },
     ]);
     await syncProject(db, projectId, mockGithub as any);
-    expect(getActiveItems(db).some((i) => i.type === "checks_failing")).toBe(true);
+    expect(getActiveItems(db).some((i: { type: string }) => i.type === "checks_failing")).toBe(true);
 
     // Second sync: checks pass
     mockGithub.listOpenPRs.mockResolvedValueOnce([
@@ -103,6 +103,6 @@ describe("sync engine", () => {
       { name: "test", status: "completed", conclusion: "success" },
     ]);
     await syncProject(db, projectId, mockGithub as any);
-    expect(getActiveItems(db).some((i) => i.type === "checks_failing")).toBe(false);
+    expect(getActiveItems(db).some((i: { type: string }) => i.type === "checks_failing")).toBe(false);
   });
 });

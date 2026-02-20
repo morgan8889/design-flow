@@ -123,7 +123,7 @@ describe("attention engine", () => {
     });
 
     const active = getActiveItems(db);
-    const checkItems = active.filter((i) => i.type === "checks_failing");
+    const checkItems = active.filter((i: { type: string }) => i.type === "checks_failing");
     expect(checkItems).toHaveLength(1);
   });
 });

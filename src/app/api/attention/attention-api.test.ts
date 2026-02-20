@@ -37,7 +37,7 @@ describe("attention API data operations", () => {
     const all = getActiveItems(db);
     expect(all).toHaveLength(2);
 
-    const checksOnly = all.filter((i) => i.type === "checks_failing");
+    const checksOnly = all.filter((i: { type: string }) => i.type === "checks_failing");
     expect(checksOnly).toHaveLength(1);
   });
 
