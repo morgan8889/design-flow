@@ -2,6 +2,7 @@ import * as schema from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { createAttentionItem, autoResolveByCondition } from "./attention";
 import { detectAndParse } from "./parsers";
+import { shouldNotify, formatNotification, sendMacNotification } from "./notifications";
 import { createHash } from "crypto";
 import type { GitHubClient } from "./github";
 import { v4 as uuid } from "uuid";
@@ -17,6 +18,21 @@ function extractOwnerRepo(githubUrl: string): { owner: string; repo: string } | 
 
 function hashContent(content: string): string {
   return createHash("sha256").update(content).digest("hex");
+}
+
+function getNotificationThreshold(db: Db): number {
+  const row = db.select().from(schema.settings).where(eq(schema.settings.key, "notification_priority_threshold")).get();
+  return row ? parseInt(row.value, 10) : 4;
+}
+
+function maybeNotify(db: Db, item: { createdAt: string; priority: number; title: string }, projectName: string): void {
+  const ageMs = Date.now() - new Date(item.createdAt).getTime();
+  if (ageMs > 5000) return; // not newly created (dedup return)
+  const threshold = getNotificationThreshold(db);
+  if (shouldNotify(item, threshold)) {
+    const { title, message } = formatNotification({ type: "", title: item.title, projectName });
+    sendMacNotification(title, message);
+  }
 }
 
 export async function syncProject(db: Db, projectId: string, github: GitHubClient): Promise<void> {
@@ -55,13 +71,14 @@ async function syncGitHubPRs(
 
     if (pr.requestedReviewers.length > 0) {
       hasReviewRequests = true;
-      createAttentionItem(db, {
+      const item = createAttentionItem(db, {
         projectId: project.id,
         type: "pr_needs_review",
         title: `PR #${pr.number}: ${pr.title}`,
         priority: 4,
         sourceUrl: pr.htmlUrl,
       });
+      maybeNotify(db, item, project.name);
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -74,13 +91,14 @@ async function syncGitHubPRs(
 
       if (hasFailing) {
         hasFailingChecks = true;
-        createAttentionItem(db, {
+        const item = createAttentionItem(db, {
           projectId: project.id,
           type: "checks_failing",
           title: `Checks failing on PR #${pr.number}: ${pr.title}`,
           priority: 5,
           sourceUrl: pr.htmlUrl,
         });
+        maybeNotify(db, item, project.name);
       }
 
       const allPassing =
@@ -151,13 +169,14 @@ async function syncGitHubPlans(
         .where(eq(schema.plans.id, existingPlan.id))
         .run();
 
-      createAttentionItem(db, {
+      const item = createAttentionItem(db, {
         projectId: project.id,
         planId: existingPlan.id,
         type: "plan_changed",
         title: `Plan updated: ${parsed.title}`,
         priority: 2,
       });
+      maybeNotify(db, item, project.name);
     } else {
       const planId = uuid();
       db.insert(schema.plans)
