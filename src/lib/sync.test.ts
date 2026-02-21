@@ -111,12 +111,12 @@ describe("sync engine", () => {
     const prs = db.select().from(schema.pullRequests).all();
     expect(prs).toHaveLength(2);
 
-    const spec = prs.find((p: any) => p.number === 16);
+    const spec = prs.find((p: any) => p.number === 16)!;
     expect(spec.specNumber).toBe("016");
     expect(spec.state).toBe("merged");
     expect(spec.branchRef).toBe("016-portfolio-management");
 
-    const bugfix = prs.find((p: any) => p.number === 99);
+    const bugfix = prs.find((p: any) => p.number === 99)!;
     expect(bugfix.specNumber).toBeNull();
   });
 
