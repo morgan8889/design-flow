@@ -20,6 +20,15 @@ export interface GitHubCheckRun {
   conclusion: string | null;
 }
 
+export interface GitHubPRSummary {
+  number: number;
+  title: string;
+  htmlUrl: string;
+  headRef: string;
+  state: string;
+  mergedAt: string | null;
+}
+
 export class GitHubClient {
   private octokit: Octokit;
 
@@ -104,6 +113,24 @@ export class GitHubClient {
     } catch {
       return [];
     }
+  }
+
+  async listMergedPRs(owner: string, repo: string): Promise<GitHubPRSummary[]> {
+    const { data } = await this.octokit.rest.pulls.list({
+      owner,
+      repo,
+      state: "closed",
+      per_page: 100,
+    });
+
+    return data.map((pr) => ({
+      number: pr.number,
+      title: pr.title,
+      htmlUrl: pr.html_url,
+      headRef: pr.head.ref,
+      state: pr.merged_at ? "merged" : "closed",
+      mergedAt: pr.merged_at ?? null,
+    }));
   }
 
   async listDirectoryContents(owner: string, repo: string, path: string): Promise<string[]> {
