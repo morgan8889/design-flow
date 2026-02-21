@@ -1,7 +1,9 @@
 import type { ParserProfile, ParsedPlan } from "@/lib/types";
 import { genericMarkdownProfile } from "./generic-markdown";
+import { taskListProfile } from "./task-list";
+import { speckitTasksProfile } from "./speckit-tasks";
 
-const profiles: ParserProfile[] = [genericMarkdownProfile];
+const profiles: ParserProfile[] = [speckitTasksProfile, taskListProfile, genericMarkdownProfile];
 
 export function registerProfile(profile: ParserProfile): void {
   // Insert before generic-markdown (which should always be last as fallback)
