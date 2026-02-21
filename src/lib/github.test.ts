@@ -72,4 +72,44 @@ describe("GitHubClient", () => {
     expect(checks).toHaveLength(1);
     expect(checks[0].conclusion).toBe("failure");
   });
+
+  it("listMergedPRs returns closed PRs with head ref", async () => {
+    const mockOctokit = {
+      rest: {
+        pulls: {
+          list: vi.fn().mockResolvedValue({
+            data: [
+              {
+                number: 16,
+                title: "Portfolio Management",
+                html_url: "https://github.com/user/repo/pull/16",
+                head: { ref: "016-portfolio-management" },
+                state: "closed",
+                merged_at: "2026-02-04T00:00:00Z",
+              },
+              {
+                number: 17,
+                title: "Bugfix",
+                html_url: "https://github.com/user/repo/pull/17",
+                head: { ref: "fix/some-bug" },
+                state: "closed",
+                merged_at: null,
+              },
+            ],
+          }),
+        },
+      },
+    };
+
+    // @ts-expect-error mocking private octokit
+    client["octokit"] = mockOctokit;
+
+    const prs = await client.listMergedPRs("user", "repo");
+    expect(prs).toHaveLength(2);
+    expect(prs[0].headRef).toBe("016-portfolio-management");
+    expect(prs[0].mergedAt).toBe("2026-02-04T00:00:00Z");
+    expect(prs[0].state).toBe("merged");
+    expect(prs[1].mergedAt).toBeNull();
+    expect(prs[1].state).toBe("closed");
+  });
 });
