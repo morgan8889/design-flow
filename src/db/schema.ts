@@ -65,3 +65,17 @@ export const settings = sqliteTable("settings", {
   key: text("key").primaryKey(),
   value: text("value").notNull(),
 });
+
+export const pullRequests = sqliteTable("pull_requests", {
+  id: text("id").primaryKey(), // "${projectId}:${number}" — deterministic for upsert
+  projectId: text("project_id")
+    .notNull()
+    .references(() => projects.id, { onDelete: "cascade" }),
+  number: integer("number").notNull(),
+  title: text("title").notNull(),
+  branchRef: text("branch_ref").notNull(),
+  specNumber: text("spec_number"), // extracted from branchRef, null if no match
+  state: text("state").notNull(), // "open" | "merged" | "closed"
+  mergedAt: text("merged_at"),
+  htmlUrl: text("html_url").notNull(),
+});
