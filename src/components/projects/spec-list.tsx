@@ -24,8 +24,26 @@ function deriveStatus(spec: { plans: Plan[]; specNumber: string }, prs: PullRequ
   const hasDoneTasks = spec.plans.some((p) =>
     p.phases.some((ph) => ph.tasks.some((t) => t.done))
   );
-  if (hasOpenPr || hasDoneTasks) return "in_progress";
+  const hasInProgressPhase = spec.plans.some((p) =>
+    p.phases.some((ph) => ph.status === "in_progress" || ph.status === "completed")
+  );
+  if (hasOpenPr || hasDoneTasks || hasInProgressPhase) return "in_progress";
   return "not_started";
+}
+
+function planToSpecGroup(plan: Plan): SpecGroup {
+  const hasProgress = plan.phases.some(
+    (ph) => ph.status === "in_progress" || ph.status === "completed" || ph.tasks.some((t) => t.done)
+  );
+  return {
+    specNumber: "",
+    specName: plan.title,
+    plans: [plan],
+    primaryPlan: plan,
+    status: hasProgress ? "in_progress" : "not_started",
+    mergedAt: null,
+    pr: null,
+  };
 }
 
 function buildSpecGroups(plans: Plan[], pullRequests: PullRequest[]): { specs: SpecGroup[]; ungrouped: Plan[] } {
@@ -49,7 +67,10 @@ function buildSpecGroups(plans: Plan[], pullRequests: PullRequest[]): { specs: S
   const specs: SpecGroup[] = Array.from(groupMap.values())
     .sort((a, b) => a.specNumber.localeCompare(b.specNumber))
     .map((group) => {
-      const primaryPlan = group.plans.find((p) => p.format === "speckit-tasks") ?? null;
+      const primaryPlan =
+        group.plans.find((p) => p.format === "speckit-tasks") ??
+        group.plans.find((p) => p.phases.length > 0) ??
+        null;
       const status = deriveStatus(group, pullRequests);
       const specPrs = pullRequests.filter((pr) => pr.specNumber === group.specNumber);
       const mergedPr = specPrs.find((pr) => pr.state === "merged") ?? null;
@@ -165,14 +186,16 @@ export function SpecList({ plans, pullRequests }: SpecListProps) {
         </div>
       )}
 
-      {/* Ungrouped plans (README etc) */}
-      {ungrouped.length > 0 && statusFilter === "all" && (
+      {/* Ungrouped plans (docs/plans/, README etc) */}
+      {ungrouped.length > 0 && statusFilter !== "shipped" && (
         <div className="mt-6">
-          <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Other</h4>
-          <div className="space-y-1">
-            {ungrouped.map((p) => (
-              <div key={p.id} className="text-sm text-muted-foreground px-2">{p.title}</div>
-            ))}
+          <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Plans</h4>
+          <div className="space-y-2">
+            {ungrouped
+              .filter((p) => !search || p.title.toLowerCase().includes(search.toLowerCase()))
+              .map((p) => (
+                <SpecRow key={p.id} spec={planToSpecGroup(p)} onOpenDrawer={setDrawerSpec} />
+              ))}
           </div>
         </div>
       )}
