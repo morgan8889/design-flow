@@ -39,9 +39,13 @@ describe("full sync cycle integration", () => {
       { name: "ci", status: "completed", conclusion: "success" },
     ]),
     listDirectoryContents: vi.fn().mockResolvedValue(["docs/plans/auth.md"]),
-    getFileContent: vi.fn().mockResolvedValue({
-      content: specContent,
-      sha: "filesha",
+    listFilesRecursively: vi.fn().mockResolvedValue([]),
+    // Path-aware: only return content for known plan files; null for README.md probe
+    getFileContent: vi.fn().mockImplementation((_owner: string, _repo: string, path: string) => {
+      if (path === "docs/plans/auth.md") {
+        return Promise.resolve({ content: specContent, sha: "filesha" });
+      }
+      return Promise.resolve(null);
     }),
   };
 
@@ -88,9 +92,11 @@ describe("full sync cycle integration", () => {
 
     // Change file content for second sync
     const updatedContent = specContent.replace("- [ ] Review", "- [x] Review");
-    mockGithub.getFileContent.mockResolvedValueOnce({
-      content: updatedContent,
-      sha: "newsha",
+    mockGithub.getFileContent.mockImplementation((_owner: string, _repo: string, path: string) => {
+      if (path === "docs/plans/auth.md") {
+        return Promise.resolve({ content: updatedContent, sha: "newsha" });
+      }
+      return Promise.resolve(null);
     });
 
     await syncProject(db, projectId, mockGithub as any);

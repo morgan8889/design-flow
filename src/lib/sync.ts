@@ -1,5 +1,5 @@
 import * as schema from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { createAttentionItem, autoResolveByCondition } from "./attention";
 import { detectAndParse } from "./parsers";
 import { shouldNotify, formatNotification, sendMacNotification } from "./notifications";
@@ -127,6 +127,24 @@ async function syncGitHubPRs(
   }
 }
 
+async function collectPlanFiles(owner: string, repo: string, github: GitHubClient): Promise<string[]> {
+  const files: string[] = [];
+
+  // 1. docs/plans (flat, existing convention)
+  const docsFiles = await github.listDirectoryContents(owner, repo, "docs/plans");
+  files.push(...docsFiles);
+
+  // 2. specs/ (recursive — speckit projects)
+  const specFiles = await github.listFilesRecursively(owner, repo, "specs");
+  files.push(...specFiles);
+
+  // 3. README.md (project-level roadmap)
+  const readme = await github.getFileContent(owner, repo, "README.md");
+  if (readme) files.push("README.md");
+
+  return [...new Set(files)].filter((f) => f.endsWith(".md"));
+}
+
 async function syncGitHubPlans(
   db: Db,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -135,11 +153,9 @@ async function syncGitHubPlans(
   repo: string,
   github: GitHubClient
 ): Promise<void> {
-  const files = await github.listDirectoryContents(owner, repo, "docs/plans");
+  const files = await collectPlanFiles(owner, repo, github);
 
   for (const filePath of files) {
-    if (!filePath.endsWith(".md")) continue;
-
     const fileData = await github.getFileContent(owner, repo, filePath);
     if (!fileData) continue;
 
@@ -147,7 +163,7 @@ async function syncGitHubPlans(
     const existingPlan = db
       .select()
       .from(schema.plans)
-      .where(eq(schema.plans.filePath, filePath))
+      .where(and(eq(schema.plans.filePath, filePath), eq(schema.plans.projectId, project.id)))
       .get();
 
     if (existingPlan && existingPlan.fileHash === newHash) {

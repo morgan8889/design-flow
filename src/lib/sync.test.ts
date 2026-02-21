@@ -14,6 +14,7 @@ const mockGithub = {
   getCheckRuns: vi.fn().mockResolvedValue([]),
   getFileContent: vi.fn().mockResolvedValue(null),
   listDirectoryContents: vi.fn().mockResolvedValue([]),
+  listFilesRecursively: vi.fn().mockResolvedValue([]),
 };
 
 describe("sync engine", () => {

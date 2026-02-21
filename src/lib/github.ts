@@ -90,6 +90,22 @@ export class GitHubClient {
     }
   }
 
+  async listFilesRecursively(owner: string, repo: string, pathPrefix: string): Promise<string[]> {
+    try {
+      const { data } = await this.octokit.rest.git.getTree({
+        owner,
+        repo,
+        tree_sha: "HEAD",
+        recursive: "1",
+      });
+      return data.tree
+        .filter((item) => item.type === "blob" && item.path?.startsWith(pathPrefix + "/"))
+        .map((item) => item.path!);
+    } catch {
+      return [];
+    }
+  }
+
   async listDirectoryContents(owner: string, repo: string, path: string): Promise<string[]> {
     try {
       const { data } = await this.octokit.rest.repos.getContent({
