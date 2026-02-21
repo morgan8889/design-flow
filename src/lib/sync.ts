@@ -10,6 +10,11 @@ import { v4 as uuid } from "uuid";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = any;
 
+function extractSpecNumber(branchRef: string): string | null {
+  const m = branchRef.match(/\b(\d{3})-/);
+  return m ? m[1] : null;
+}
+
 function extractOwnerRepo(githubUrl: string): { owner: string; repo: string } | null {
   const match = githubUrl.match(/github\.com\/([^/]+)\/([^/]+)/);
   if (!match) return null;
@@ -124,6 +129,47 @@ async function syncGitHubPRs(
   }
   if (prs.length === 0) {
     autoResolveByCondition(db, project.id, "pr_merge_ready");
+  }
+
+  // Upsert all PRs (open + closed/merged) into pull_requests table
+  const mergedPRs = await github.listMergedPRs(owner, repo);
+  const allPRs = [...mergedPRs];
+  for (const pr of prs) {
+    // Only add open PRs that weren't already returned by listMergedPRs
+    if (!allPRs.some((p) => p.number === pr.number)) {
+      allPRs.push({
+        number: pr.number,
+        title: pr.title,
+        htmlUrl: pr.htmlUrl,
+        headRef: "",
+        state: "open",
+        mergedAt: null,
+      });
+    }
+  }
+
+  for (const pr of allPRs) {
+    const id = `${project.id}:${pr.number}`;
+    const specNumber = pr.headRef ? extractSpecNumber(pr.headRef) : null;
+    const existing = db.select().from(schema.pullRequests).where(eq(schema.pullRequests.id, id)).get();
+    if (existing) {
+      db.update(schema.pullRequests)
+        .set({ title: pr.title, state: pr.state, mergedAt: pr.mergedAt ?? null })
+        .where(eq(schema.pullRequests.id, id))
+        .run();
+    } else {
+      db.insert(schema.pullRequests).values({
+        id,
+        projectId: project.id,
+        number: pr.number,
+        title: pr.title,
+        branchRef: pr.headRef,
+        specNumber,
+        state: pr.state,
+        mergedAt: pr.mergedAt ?? null,
+        htmlUrl: pr.htmlUrl,
+      }).run();
+    }
   }
 }
 

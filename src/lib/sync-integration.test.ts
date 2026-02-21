@@ -40,6 +40,7 @@ describe("full sync cycle integration", () => {
     ]),
     listDirectoryContents: vi.fn().mockResolvedValue(["docs/plans/auth.md"]),
     listFilesRecursively: vi.fn().mockResolvedValue([]),
+    listMergedPRs: vi.fn().mockResolvedValue([]),
     // Path-aware: only return content for known plan files; null for README.md probe
     getFileContent: vi.fn().mockImplementation((_owner: string, _repo: string, path: string) => {
       if (path === "docs/plans/auth.md") {

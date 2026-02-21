@@ -15,6 +15,7 @@ const mockGithub = {
   getFileContent: vi.fn().mockResolvedValue(null),
   listDirectoryContents: vi.fn().mockResolvedValue([]),
   listFilesRecursively: vi.fn().mockResolvedValue([]),
+  listMergedPRs: vi.fn().mockResolvedValue([]),
 };
 
 describe("sync engine", () => {
@@ -83,6 +84,40 @@ describe("sync engine", () => {
 
     const items = getActiveItems(db);
     expect(items.some((i: { type: string }) => i.type === "pr_needs_review")).toBe(true);
+  });
+
+  it("upserts merged PRs with spec number into pull_requests", async () => {
+    mockGithub.listMergedPRs.mockResolvedValueOnce([
+      {
+        number: 16,
+        title: "Portfolio Management",
+        htmlUrl: "https://github.com/user/repo/pull/16",
+        headRef: "016-portfolio-management",
+        state: "merged",
+        mergedAt: "2026-02-04T00:00:00Z",
+      },
+      {
+        number: 99,
+        title: "Bugfix",
+        htmlUrl: "https://github.com/user/repo/pull/99",
+        headRef: "fix/some-bug",
+        state: "closed",
+        mergedAt: null,
+      },
+    ]);
+
+    await syncProject(db, projectId, mockGithub as any);
+
+    const prs = db.select().from(schema.pullRequests).all();
+    expect(prs).toHaveLength(2);
+
+    const spec = prs.find((p: any) => p.number === 16);
+    expect(spec.specNumber).toBe("016");
+    expect(spec.state).toBe("merged");
+    expect(spec.branchRef).toBe("016-portfolio-management");
+
+    const bugfix = prs.find((p: any) => p.number === 99);
+    expect(bugfix.specNumber).toBeNull();
   });
 
   it("auto-resolves checks_failing when checks pass", async () => {
