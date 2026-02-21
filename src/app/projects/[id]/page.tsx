@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { PlanProgress } from "@/components/projects/plan-progress";
+import { SpecList } from "@/components/projects/spec-list";
 import { ProjectActivity } from "@/components/projects/project-activity";
 
 export default function ProjectDetailPage() {
@@ -14,19 +14,23 @@ export default function ProjectDetailPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [plans, setPlans] = useState<any[]>([]);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [prs, setPrs] = useState<any[]>([]);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function load() {
-      const [projRes, plansRes, itemsRes] = await Promise.all([
+      const [projRes, plansRes, prsRes, itemsRes] = await Promise.all([
         fetch(`/api/projects/${id}`),
         fetch(`/api/plans/${id}`),
+        fetch(`/api/pull-requests?projectId=${id}`),
         fetch(`/api/attention?projectId=${id}`),
       ]);
 
       setProject(await projRes.json());
       setPlans(await plansRes.json());
+      setPrs(await prsRes.json());
       setItems(await itemsRes.json());
       setLoading(false);
     }
@@ -42,13 +46,13 @@ export default function ProjectDetailPage() {
     return <div className="text-muted-foreground">Loading...</div>;
   }
 
-  const statusLabel = items.some((i) => i.priority >= 4)
+  const statusLabel = items.some((i: { priority: number }) => i.priority >= 4)
     ? "Needs attention"
     : items.length > 0
       ? "On track"
       : "Clear";
 
-  const statusVariant = items.some((i) => i.priority >= 4)
+  const statusVariant = items.some((i: { priority: number }) => i.priority >= 4)
     ? "destructive"
     : items.length > 0
       ? "default"
@@ -56,7 +60,7 @@ export default function ProjectDetailPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-4">
         <div>
           <h2 className="text-2xl font-semibold">{project.name}</h2>
           <div className="flex items-center gap-2 mt-1">
@@ -79,16 +83,16 @@ export default function ProjectDetailPage() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div>
-          <h3 className="text-sm font-medium text-muted-foreground mb-3">Plan Progress</h3>
-          <PlanProgress plans={plans} />
-        </div>
-        <div>
+      {/* Attention items */}
+      {items.length > 0 && (
+        <div className="mb-6">
           <h3 className="text-sm font-medium text-muted-foreground mb-3">Attention</h3>
           <ProjectActivity items={items} onResolve={handleResolve} />
         </div>
-      </div>
+      )}
+
+      {/* Spec list */}
+      <SpecList plans={plans} pullRequests={prs} />
     </div>
   );
 }
