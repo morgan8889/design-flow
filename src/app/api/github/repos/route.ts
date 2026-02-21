@@ -6,12 +6,12 @@ import { v4 as uuid } from "uuid";
 import { eq } from "drizzle-orm";
 
 export async function POST() {
-  const token = process.env.GITHUB_PAT;
+  const db = getDatabase();
+  const row = db.select().from(schema.settings).where(eq(schema.settings.key, "github_pat")).get();
+  const token = process.env.GITHUB_PAT ?? row?.value;
   if (!token) {
     return NextResponse.json({ error: "GitHub PAT not configured" }, { status: 500 });
   }
-
-  const db = getDatabase();
   const github = new GitHubClient(token);
   const repos = await github.listRepos();
 

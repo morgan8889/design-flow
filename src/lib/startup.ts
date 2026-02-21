@@ -1,4 +1,6 @@
 import { getDatabase } from "@/db";
+import * as schema from "@/db/schema";
+import { eq } from "drizzle-orm";
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 import { SyncScheduler } from "./scheduler";
 import { syncAllProjects } from "./sync";
@@ -12,10 +14,12 @@ export function initializeApp(): void {
   // Run migrations
   migrate(db, { migrationsFolder: "./drizzle" });
 
-  // Start sync scheduler if PAT is configured
-  const token = process.env.GITHUB_PAT;
+  // Start sync scheduler if PAT is configured (env var takes priority over DB setting)
+  const dbPat = db.select().from(schema.settings).where(eq(schema.settings.key, "github_pat")).get();
+  const token = process.env.GITHUB_PAT ?? dbPat?.value;
   if (token) {
-    const intervalMs = parseInt(process.env.SYNC_INTERVAL_MS ?? "180000", 10);
+    const dbInterval = db.select().from(schema.settings).where(eq(schema.settings.key, "sync_interval_ms")).get();
+    const intervalMs = parseInt(process.env.SYNC_INTERVAL_MS ?? dbInterval?.value ?? "180000", 10);
     const github = new GitHubClient(token);
 
     scheduler = new SyncScheduler(async () => {
