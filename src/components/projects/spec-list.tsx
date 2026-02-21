@@ -86,6 +86,7 @@ function buildSpecGroups(plans: Plan[], pullRequests: PullRequest[]): { specs: S
     .sort((a, b) => a.specNumber.localeCompare(b.specNumber))
     .map((group) => {
       const primaryPlan =
+        group.plans.find((p) => p.format === "speckit-tasks" && p.filePath.endsWith("/tasks.md")) ??
         group.plans.find((p) => p.format === "speckit-tasks") ??
         group.plans.find((p) => p.phases.length > 0) ??
         null;
