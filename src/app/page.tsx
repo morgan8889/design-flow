@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { AttentionItemCard } from "@/components/inbox/attention-item-card";
 import { InboxFilters } from "@/components/inbox/inbox-filters";
+import { ActivityFeed } from "@/components/inbox/activity-feed";
 
 interface AttentionItem {
   id: string;
@@ -60,6 +61,7 @@ export default function InboxPage() {
           ))}
         </div>
       )}
+      <ActivityFeed />
     </div>
   );
 }
